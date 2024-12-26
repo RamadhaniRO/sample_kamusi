@@ -1,38 +1,28 @@
 const express = require('express');
-const { OpenAI } = require('openai');
+const { pipeline } = require('@huggingface/transformers');
 const router = express.Router();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Load a pre-trained model
+const translator = pipeline('translation_en_to_sw', 'Helsinki-NLP/opus-mt-en-sw');
+const chatbot = pipeline('conversational', 'microsoft/DialoGPT-medium');
 
-router.post('/generate-lesson', async (req, res) => {
-  const { topic } = req.body;
+router.post('/translate', async (req, res) => {
+  const { text } = req.body;
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'You are a Swahili language tutor.' },
-        { role: 'user', content: `Create a lesson on ${topic} in Swahili. Include a quiz.` },
-      ],
-    });
-    res.json({ lesson: response.choices[0].message.content });
+    const result = await translator(text);
+    res.json({ translatedText: result[0].translation_text });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to generate lesson' });
+    res.status(500).json({ error: 'Translation failed' });
   }
 });
 
 router.post('/chat', async (req, res) => {
   const { message } = req.body;
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'You are a Swahili language assistant.' },
-        { role: 'user', content: message },
-      ],
-    });
-    res.json({ reply: response.choices[0].message.content });
+    const result = await chatbot(message);
+    res.json({ reply: result[0].generated_text });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to generate reply' });
+    res.status(500).json({ error: 'Chat failed' });
   }
 });
 
